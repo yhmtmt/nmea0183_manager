@@ -1,90 +1,68 @@
-#include "stdafx.h"
-
-// Copyright(c) 2016 Yohei Matsumoto, Tokyo University of Marine
+// Copyright(c) 2016-2019 Yohei Matsumoto, Tokyo University of Marine
 // Science and Technology, All right reserved. 
 
-// f_aws1_nmea_sw.cpp is free software: you can redistribute it and/or modify
+// f_nmea0183_manager.cpp is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// f_aws1_nmea_sw.cpp is distributed in the hope that it will be useful,
+// f_nmea0183_manager.cpp is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with f_aws1_nmea_sw.cpp.  If not, see <http://www.gnu.org/licenses/>. 
+// along with f_nmea0183_manager.cpp.  If not, see <http://www.gnu.org/licenses/>. 
 
-#include <cstdio>
-#include <cstring>
-#include <cmath>
+#include "f_nmea0183_manager.hpp"
+DEFINE_FILTER(f_nmea0183_manager);
 
-#include <iostream>
-#include <fstream>
-#include <vector>
-#include <list>
-#include <map>
-
-using namespace std;
-
-#include "../util/aws_serial.h"
-#include "../util/aws_stdlib.h"
-#include "../util/aws_thread.h"
-#include "../util/c_clock.h"
-
-#include <opencv2/opencv.hpp>
-
-using namespace cv;
-
-#include "f_aws1_nmea_sw.h"
-
-f_aws1_nmea_sw::f_aws1_nmea_sw(const char * name): f_base(name), 
-	m_state(NULL), m_ais_obj(NULL),
-	m_aws_nmea_i(NULL), m_wx220_nmea_i(NULL), m_gff_nmea_i(NULL),
-	m_ais_nmea_i(NULL), m_v104_nmea_i(NULL),
-	m_aws_nmea_o(NULL), m_wx220_nmea_o(NULL), m_gff_nmea_o(NULL), 
-	m_ais_nmea_o(NULL), m_v104_nmea_o(NULL),
-	m_aws_ctrl(false), m_verb(false),
-	m_aws_oint(1), m_wx220_oint(1), m_gff_oint(1), m_ais_oint(1), m_v104_oint(1),
-	m_aws_ocnt(0), m_wx220_ocnt(0), m_gff_ocnt(0), m_ais_ocnt(0), m_v104_ocnt(0)
+f_nmea0183_manager::f_nmea0183_manager(const char * name): f_base(name), 
+							   m_state(NULL), m_ais_obj(NULL),
+							   m_aws_nmea_i(NULL), m_wx220_nmea_i(NULL), m_gff_nmea_i(NULL),
+							   m_ais_nmea_i(NULL), m_v104_nmea_i(NULL),
+							   m_aws_nmea_o(NULL), m_wx220_nmea_o(NULL), m_gff_nmea_o(NULL), 
+							   m_ais_nmea_o(NULL), m_v104_nmea_o(NULL),
+							   m_aws_ctrl(false), m_verb(false),
+							   m_aws_oint(1), m_wx220_oint(1), m_gff_oint(1), m_ais_oint(1), m_v104_oint(1),
+							   m_aws_ocnt(0), m_wx220_ocnt(0), m_gff_ocnt(0), m_ais_ocnt(0), m_v104_ocnt(0)
 {
-	register_fpar("state", (ch_base**)&m_state, typeid(ch_state).name(), "State output channel.");
-	register_fpar("ais_obj", (ch_base**)&m_ais_obj, typeid(ch_ais_obj).name(), "AIS object channel.");
-	register_fpar("aws_nmea_i", (ch_base**)&m_aws_nmea_i, typeid(ch_nmea).name(), "Input Channel of aws_nmea.");
-	register_fpar("aws_nmea_o", (ch_base**)&m_aws_nmea_o, typeid(ch_nmea).name(), "Output Channel of aws_nmea.");
-	register_fpar("wx220_nmea_i", (ch_base**)&m_wx220_nmea_i, typeid(ch_nmea).name(), "Input Channel of wx220_nmea.");
-	register_fpar("wx220_nmea_o", (ch_base**)&m_wx220_nmea_o, typeid(ch_nmea).name(), "Output Channel of wx220_nmea.");
-	register_fpar("gff_nmea_i", (ch_base**)&m_gff_nmea_i, typeid(ch_nmea).name(), "Input Channel of gff_nmea.");
-	register_fpar("gff_nmea_o", (ch_base**)&m_gff_nmea_o, typeid(ch_nmea).name(), "Output Channel of gff_nmea.");
-	register_fpar("ais_nmea_i", (ch_base**)&m_ais_nmea_i, typeid(ch_nmea).name(), "Input Channel of ais_nmea.");
-	register_fpar("ais_nmea_o", (ch_base**)&m_ais_nmea_o, typeid(ch_nmea).name(), "Output Channel of ais_nmea.");
-	register_fpar("v104_nmea_i", (ch_base**)&m_v104_nmea_i, typeid(ch_nmea).name(), "Input Channel of v104_nmea.");
-	register_fpar("v104_nmea_o", (ch_base**)&m_v104_nmea_o, typeid(ch_nmea).name(), "Output Channel of v104_nmea.");
+  register_fpar("state", (ch_base**)&m_state, typeid(ch_state).name(), "State output channel.");
+  register_fpar("ais_obj", (ch_base**)&m_ais_obj, typeid(ch_ais_obj).name(), "AIS object channel.");
+  register_fpar("aws_nmea_i", (ch_base**)&m_aws_nmea_i, typeid(ch_nmea).name(), "Input Channel of aws_nmea.");
+  register_fpar("aws_nmea_o", (ch_base**)&m_aws_nmea_o, typeid(ch_nmea).name(), "Output Channel of aws_nmea.");
+  register_fpar("wx220_nmea_i", (ch_base**)&m_wx220_nmea_i, typeid(ch_nmea).name(), "Input Channel of wx220_nmea.");
+  register_fpar("wx220_nmea_o", (ch_base**)&m_wx220_nmea_o, typeid(ch_nmea).name(), "Output Channel of wx220_nmea.");
+  register_fpar("gff_nmea_i", (ch_base**)&m_gff_nmea_i, typeid(ch_nmea).name(), "Input Channel of gff_nmea.");
+  register_fpar("gff_nmea_o", (ch_base**)&m_gff_nmea_o, typeid(ch_nmea).name(), "Output Channel of gff_nmea.");
+  register_fpar("ais_nmea_i", (ch_base**)&m_ais_nmea_i, typeid(ch_nmea).name(), "Input Channel of ais_nmea.");
+  register_fpar("ais_nmea_o", (ch_base**)&m_ais_nmea_o, typeid(ch_nmea).name(), "Output Channel of ais_nmea.");
+  register_fpar("v104_nmea_i", (ch_base**)&m_v104_nmea_i, typeid(ch_nmea).name(), "Input Channel of v104_nmea.");
+  register_fpar("v104_nmea_o", (ch_base**)&m_v104_nmea_o, typeid(ch_nmea).name(), "Output Channel of v104_nmea.");
 
-	register_fpar("aws_ctrl", &m_aws_ctrl, "If yes, APB message is switched from fish finder to aws (default false)");
-	register_fpar("awsint", &m_aws_oint, "Output interval of aws output channel (default 1)");
-	register_fpar("wx220int", &m_wx220_oint, "Output interval of WX220 output channel (default 1)");
-	register_fpar("gffint", &m_gff_oint, "Output interval of GPS fish finder output channel (default 1)");
-	register_fpar("aisint", &m_ais_oint, "Output interval of AIS output channel (default 1)");
-	register_fpar("v104int", &m_v104_oint, "Output interval of V104 output channel (default 1)");
-	register_fpar("verb", &m_verb, "For debug.");
+  register_fpar("aws_ctrl", &m_aws_ctrl, "If yes, APB message is switched from fish finder to aws (default false)");
+  register_fpar("awsint", &m_aws_oint, "Output interval of aws output channel (default 1)");
+  register_fpar("wx220int", &m_wx220_oint, "Output interval of WX220 output channel (default 1)");
+  register_fpar("gffint", &m_gff_oint, "Output interval of GPS fish finder output channel (default 1)");
+  register_fpar("aisint", &m_ais_oint, "Output interval of AIS output channel (default 1)");
+  register_fpar("v104int", &m_v104_oint, "Output interval of V104 output channel (default 1)");
+  register_fpar("verb", &m_verb, "For debug.");
 }
 
-f_aws1_nmea_sw::~f_aws1_nmea_sw()
+f_nmea0183_manager::~f_nmea0183_manager()
 {
 }
 
-bool f_aws1_nmea_sw::init_run()
+bool f_nmea0183_manager::init_run()
 {
   return true;
 }
 
-void f_aws1_nmea_sw::destroy_run()
+void f_nmea0183_manager::destroy_run()
 {
 }
 
-void f_aws1_nmea_sw::aws_to_out()
+void f_nmea0183_manager::aws_to_out()
 {
   while(m_aws_nmea_i->pop(m_nmea)){
     e_nd_type type = get_nd_type(m_nmea);
@@ -96,7 +74,7 @@ void f_aws1_nmea_sw::aws_to_out()
 }
 
 // from WX220, 
-void f_aws1_nmea_sw::wx220_to_out()
+void f_nmea0183_manager::wx220_to_out()
 {
   while(m_wx220_nmea_i->pop(m_nmea)){
     e_nd_type type = get_nd_type(m_nmea);
@@ -137,7 +115,7 @@ void f_aws1_nmea_sw::wx220_to_out()
 }
 
 // from GPS fish finder, only DBT(depth information) information is used.
-void f_aws1_nmea_sw::gff_to_out()
+void f_nmea0183_manager::gff_to_out()
 {
   while(m_gff_nmea_i->pop(m_nmea)){
     e_nd_type type = get_nd_type(m_nmea);
@@ -162,7 +140,7 @@ void f_aws1_nmea_sw::gff_to_out()
 // from AIS receiver, only position reports both from class A and B  are used.
 // All nmea sentences from AIS receiver are transfered to GPS Fish finder.
 // AIS Object older than 300 msec is eliminated from object channel.
-void f_aws1_nmea_sw::ais_to_out()
+void f_nmea0183_manager::ais_to_out()
 {
   while(m_ais_nmea_i->pop(m_nmea)){
     e_nd_type type = get_nd_type(m_nmea);
@@ -220,7 +198,7 @@ void f_aws1_nmea_sw::ais_to_out()
 
 // From satellite compass, we use GGA and GLL as the position report, VTG as the corse and speed report, ZDA as time report, and PSAT,HPR, the hemisphere's specific sentence, as the attitude report.
 // Note that, in the current implementation, the time synchronization lines are in comment. 
-void f_aws1_nmea_sw::v104_to_out()
+void f_nmea0183_manager::v104_to_out()
 {
   while(m_v104_nmea_i->pop(m_nmea)){
     e_nd_type type = get_nd_type(m_nmea);
@@ -335,24 +313,24 @@ void f_aws1_nmea_sw::v104_to_out()
   }
 }
 
-bool f_aws1_nmea_sw::proc()
+bool f_nmea0183_manager::proc()
 {
   m_aws_out = m_wx220_out = m_gff_out = m_ais_out = false;
   
   if(m_aws_nmea_i)
-	aws_to_out();
+    aws_to_out();
 
   if(m_wx220_nmea_i)
-	wx220_to_out();
+    wx220_to_out();
 
   if(m_gff_nmea_i)
-	gff_to_out();
+    gff_to_out();
 
   if(m_ais_nmea_i)
-	ais_to_out();
+    ais_to_out();
 
   if(m_v104_nmea_i)
-	v104_to_out();
+    v104_to_out();
 
   if(m_aws_ocnt > 0)
     m_aws_ocnt--;
