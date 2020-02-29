@@ -23,7 +23,6 @@
 #include "ch_state.hpp"
 #include "ch_obj.hpp"
 
-
 inline bool is_nmea_type(const char * strt, const char * nmea){
   return nmea[3] == strt[0] && nmea[4] == strt[1] && nmea[5] == strt[2];
 }
